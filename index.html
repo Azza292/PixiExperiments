@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>Card Stacker 3000</title>
+	<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<script src="pixi.min.js"></script>
+
+<body>
+	<script type="text/javascript">
+		let Application = PIXI.Application,
+			loader = PIXI.loader,
+			resources = PIXI.loader.resources,
+			Sprite = PIXI.Sprite;
+
+
+		//Create a Pixi Application
+		let app = new Application({
+			width: 800,
+			height: 600,
+			antialias: true,
+			resolution: 1,
+			backgroundColor: 0x009959
+		});
+		app.renderer.view.style.position = "absolute";
+		app.renderer.view.style.display = "block";
+		app.renderer.autoResize = true;
+		app.renderer.resize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(app.view);
+
+
+		// Create Card Container
+		var cardContainer = new PIXI.Container();
+		app.stage.addChild(cardContainer);
+		var xCenter = app.screen.width / 2;
+		var yCenter = app.screen.height / 2;
+
+		// FPS Style
+		var style = new PIXI.TextStyle({
+			fontFamily: 'Arial',
+			fontSize: 24,
+			fontWeight: 'bold',
+			fill: '#ffffff',
+			dropShadow: true,
+			dropShadowColor: '#000000',
+			dropShadowBlur: 2,
+			dropShadowDistance: 0,
+		});
+
+		var basicText = new PIXI.Text('', style);
+		basicText.x = 10;
+		basicText.y = 10;
+		app.stage.addChild(basicText);
+
+		// Card Variables
+		const TOTAL_CARDS = 144; // ASSIGNMENT VALUE : 144
+		const CARD_VERTICAL_SPACING = 0.1;
+		const CARD_SCALE = 0.4;
+		const STARTING_ANGLE = 32;
+		const STACK_DISTANCE_APART = 180;
+		var card;
+		var playingCards = [];
+
+
+		// Animation
+		// Time it takes in SECONDS to move card from one stack to other
+		const ANIMATION_DURATION = 2; // ASSIGNMENT VALUE: 2
+		// Time it takes in SECONDS to draw a new card
+		const NEWCARD_DRAW = 1; // ASSIGNMENT VALUE : 1
+
+		var animFrameAmount = ANIMATION_DURATION * app.ticker.FPS;
+		var drawNewCardFrame = NEWCARD_DRAW * app.ticker.FPS;
+
+		// Array of animating cards
+		var animatingCards = [];
+
+		var time = 0;
+		var animatingCardIndex;
+
+
+		//Load Card Image
+		loader
+			.add("images/card.png")
+			.load(setup);
+
+		//Setup Sprite array, starting and ending positions
+		function setup() {
+
+			for (let i = 0; i < TOTAL_CARDS; i++) {
+
+				var tempCard = new Sprite(resources["images/card.png"].texture);
+				var spacing = i * CARD_VERTICAL_SPACING;
+				tempCard.anchor.set(0.5);
+				tempCard.x = xCenter - STACK_DISTANCE_APART;
+				tempCard.y = yCenter - spacing;
+				tempCard.scale.set(CARD_SCALE);
+
+				var startingAngle = STARTING_ANGLE * (Math.PI / 180);
+				tempCard.rotation = startingAngle;
+
+
+				var playingCard = {
+					sprite: tempCard,
+					startX: tempCard.x,
+					startY: tempCard.y,
+					endX: xCenter + STACK_DISTANCE_APART,
+					endY: yCenter + (i * CARD_VERTICAL_SPACING) - (TOTAL_CARDS * CARD_VERTICAL_SPACING),
+				};
+
+
+				playingCards.push(playingCard);
+
+				cardContainer.addChild(tempCard);
+			}
+
+			animatingCardIndex = playingCards.length - 1;
+
+			app.ticker.add(delta => gameLoop(delta));
+
+
+		}
+
+		// Assigns a card to be moved to the other stack
+		function moveCard(cardNumber) {
+
+			var newAnimatingCard = {
+				sprite: playingCards[cardNumber].sprite,
+				startX: playingCards[cardNumber].sprite.x,
+				startY: playingCards[cardNumber].sprite.y,
+				endX: playingCards[cardNumber].endX,
+				endY: playingCards[cardNumber].endY,
+				progress: 0,
+			};
+
+			animatingCards.push(newAnimatingCard);
+
+			var currentCard = playingCards[cardNumber].sprite;
+
+			// Set's the current cards layer on current top
+			cardContainer.setChildIndex(currentCard, ((playingCards.length - cardNumber) - 1));
+
+			// Set's the remain deck below the new deck
+			// This is stop first deck cards overlapping the new deck cards,
+			for (let i = cardNumber; i < playingCards.length; i++) {
+				var belowCard = playingCards[i].sprite;
+				cardContainer.setChildIndex(belowCard, cardNumber);
+			}
+
+
+		}
+
+		state = cards;
+		
+		// Game loop executing every 60 frames, unless app.ticker is modified.
+		function gameLoop(delta) {
+
+			updateFPSCounter(app.ticker.FPS);
+
+			state(delta);
+
+
+
+		}
+		
+		function cards(delta)
+		{
+		
+		
+			time += delta;
+
+			if (time > drawNewCardFrame && animatingCardIndex >= 0) {
+
+				// Assign card to move
+				moveCard(animatingCardIndex);
+				animatingCardIndex--;
+
+				time = 0;
+			}
+			animation(delta);		
+		}
+
+		// Updates the FPS text
+		function updateFPSCounter(fps) {
+			fps = fps.toFixed(2);
+			basicText.text = fps.toString();
+		}
+
+		// Animates the moving cards
+		function animation(delta) {
+
+			for (let i = 0; i < animatingCards.length; i++) 
+			{
+				var currentCard = animatingCards[i];				
+				
+				if (cardFinsihedMoving(currentCard)) {
+
+					currentCard.sprite.x =
+						currentCard.startX +
+						((currentCard.endX - currentCard.startX) / animFrameAmount) *
+						currentCard.progress;
+
+					currentCard.sprite.y =
+						currentCard.startY +
+						((currentCard.endY - currentCard.startY) / animFrameAmount) *
+						currentCard.progress;
+
+					currentCard.progress++;
+
+				} else {
+					currentCard.sprite.x = currentCard.endX;
+					currentCard.sprite.y = currentCard.endY;
+					
+					animatingCards.splice(i, 1);
+				}
+			}
+
+		}
+		
+		// Has the card reached it's final destination
+		function cardFinsihedMoving(currentCard)
+		{
+			if (currentCard.progress < animFrameAmount &&
+				currentCard.sprite.x != currentCard.endX &&
+				currentCard.sprite.y != currentCard.endY)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}							
+				
+		}
+
+	</script>
+
+
+</body>
+
+</html>
